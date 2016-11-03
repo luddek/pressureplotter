@@ -24,11 +24,13 @@ Usage
 - Plot parts of data
 
     `tail -n 20000 data_pressure.csv | python pressureplotter.py`
+    
     `tail -n 20000 data_pressure.csv | python pressureplotter.py --crosshair`
 
 - Plot updating over ssh
 
     `ssh pi@host tail -f folder/data_pressure.csv 2>&1 | python pressureplotter.py`
+    
     `ssh pi@host tail -f folder/data_pressure.csv 2>&1 | python pressureplotter.py --crosshair`
 
 - Plot upadting over ssh, start at beginning
