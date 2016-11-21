@@ -153,6 +153,12 @@ class PressurePlotter(object):
                 axisItems={'bottom': TimeAxisItem(orientation='bottom')})
         self.plotDataItems = []
 
+        # Add right click to polyfit
+        self.polyfitaction = QtGui.QAction("Fit log(y)=ax^2+bx+c", self.plotitem.vb.menu)
+        self.polyfitaction.setCheckable(True)
+        self.polyfitaction.triggered.connect(self.dopolyfitaction)
+        self.plotitem.vb.menu.addAction(self.polyfitaction)
+
         # Data connection
         self.data = PressureData()
 
@@ -162,22 +168,61 @@ class PressurePlotter(object):
             self.plotitem.addItem(self.vLine, ignoreBounds=True)
             self.plotitem.addItem(self.hLine, ignoreBounds=True)
 
-            self.proxy = pg.SignalProxy(
+        # Keep track of mouse
+        self.mousePoint = None
+        self.proxy = pg.SignalProxy(
                self.plotitem.scene().sigMouseMoved, rateLimit=60, slot=self.mouseMoved)
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
         self.timer.start(500)
 
+    def dopolyfitaction(self, evt):
+        """
+        Poly fit is clicked in context menu.
+        Add the plot item. If already added, remove it!
+        """
+        if not evt:
+            self.plotitem.removeItem(self.polyfititem)
+            self.polyfititem = None
+            self.plotitem.removeItem(self.polyfitroiitem)
+        if evt:
+            self.plotitem.disableAutoRange('xy') # Disable so it doesn't go crazy
+            x = self.mousePoint.x()
+            y = self.mousePoint.y()
+            self.polyfititem = pg.PlotDataItem()
+            self.plotitem.addItem(self.polyfititem)
+            self.polyfitroiitem = pg.PolyLineROI([[x, y], [x, y]], closed=False,
+                                                 movable=False)
+            self.polyfitroiitem.sigRegionChanged.connect(self.fitroiupdated)
+            self.plotitem.addItem(self.polyfitroiitem)
+
+    def fitroiupdated(self, roi):
+        """
+        Poly fit roi has been updated.
+        Here we do the poly fit and plot it
+        """
+        points = [(h.pos().x(), h.pos().y()) for h in roi.getHandles()]
+        order = 2
+        points = np.asarray(points)
+        poly = np.polyfit(points[:,0], np.log(points[:,1]), order)
+        # Fill the screen, but minimum same as handles
+        xmin = min(self.plotitem.vb.viewRange()[0][0], np.min(points[:,0]))
+        xmax = max(self.plotitem.vb.viewRange()[0][1], np.max(points[:,0]))
+        x = np.linspace(xmin, xmax)
+        y = np.exp(np.polyval(poly, x))
+        self.polyfititem.setData(x,y)
+
     def mouseMoved(self, evt):
-        assert CROSSHAIR
         pos = evt[0]
         if self.plotitem.sceneBoundingRect().contains(pos):
-            mousePoint = self.plotitem.vb.mapSceneToView(pos)
-            index = int(mousePoint.x())
-            self.crosshairlabel.setText("<span style='font-size: 12pt'>{0}, <span style='color: red'>{1}</span></span>".format(datetime.datetime.fromtimestamp(mousePoint.x()).strftime('%Y-%m-%d %H:%M:%S'), mousePoint.y()))
-            self.vLine.setPos(mousePoint.x())
-            self.hLine.setPos(mousePoint.y())
+            self.mousePoint = self.plotitem.vb.mapSceneToView(pos)
+            mousePoint = self.mousePoint
+            if CROSSHAIR:
+                index = int(mousePoint.x())
+                self.crosshairlabel.setText("<span style='font-size: 12pt'>{0}, <span style='color: red'>{1}</span></span>".format(datetime.datetime.fromtimestamp(mousePoint.x()).strftime('%Y-%m-%d %H:%M:%S'), mousePoint.y()))
+                self.vLine.setPos(mousePoint.x())
+                self.hLine.setPos(mousePoint.y())
 
     def update(self):
         self.data.read_new_data()
