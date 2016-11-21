@@ -45,6 +45,7 @@ import json
 import fcntl
 import argparse
 import datetime
+import signal
 from collections import defaultdict
 
 import numpy as np
@@ -240,6 +241,7 @@ class PressurePlotter(object):
  
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal.SIG_DFL) # Set ctrl+c to do default action
     PP = PressurePlotter()
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
         QtGui.QApplication.instance().exec_()
