@@ -125,6 +125,13 @@ class PressureData(object):
                     continue
                 self._add_data(line.rstrip())
 
+    def wait_for_initialdata(self):
+        """
+        read_new_data blocking until we have first lines
+        """
+        while len(self) == 0:
+            self.read_new_data()
+
 
 class TimeAxisItem(pg.AxisItem):
     """
@@ -142,6 +149,12 @@ class PressurePlotter(object):
     Launches a pyqtgraph window and adds plot with data from PressureData
     """
     def __init__(self):
+        # Data connection
+        self.data = PressureData()
+        if VERBOSE:
+            print "Waiting for initial data"
+        self.data.wait_for_initialdata()
+
         self.app = QtGui.QApplication([])
         self.win = pg.GraphicsWindow()
         self.win.setWindowTitle("Pressure")
@@ -159,9 +172,6 @@ class PressurePlotter(object):
         self.polyfitaction.setCheckable(True)
         self.polyfitaction.triggered.connect(self.dopolyfitaction)
         self.plotitem.vb.menu.addAction(self.polyfitaction)
-
-        # Data connection
-        self.data = PressureData()
 
         if CROSSHAIR:
             self.vLine = pg.InfiniteLine(angle=90, movable=False)
